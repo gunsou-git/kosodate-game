@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>子育てを間違えないために</title>
+<meta name="description" content="『こころは遺伝する』（ロバート・プロミン）にもとづく子育てシミュレーション。0歳から24歳まで育てて、個性を決めたのが遺伝・偶然・子育てのどれだったかを確かめます。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="子育てを間違えないために">
+<meta property="og:description" content="『こころは遺伝する』（ロバート・プロミン）にもとづく子育てシミュレーション。0歳から24歳まで育てて、個性を決めたのが遺伝・偶然・子育てのどれだったかを確かめます。">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>
+/* Layout: one column (max 720px). A sticky age strip (0→24) on top; each turn = status card + events + choice card. Ending = decomposition table. */
+:root{
+  --bg:#f6f4f6; --surface:#ffffff; --fg:#1d1a1f; --muted:#6c6570; --line:#e3dde4;
+  --accent:#c2366f; --accent-soft:#f8e3ec; --teal:#1f8a72; --teal-soft:#dff1ea; --amber:#a86b12; --amber-soft:#f6ead6; --miss:#b4432f; --miss-soft:#f7e2dd;
+  --gene:#c2366f; --env:#1f8a72; --luck:#8a7f8f;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#151317; --surface:#1f1c22; --fg:#efeaf1; --muted:#a69da9; --line:#36303a;
+  --accent:#ec6c9d; --accent-soft:#3a1f2b; --teal:#5cc7a8; --teal-soft:#17322b; --amber:#e0a94e; --amber-soft:#35291a; --miss:#ec8a74; --miss-soft:#3a221d;
+  --gene:#ec6c9d; --env:#5cc7a8; --luck:#a69da9; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151317; --surface:#1f1c22; --fg:#efeaf1; --muted:#a69da9; --line:#36303a;
+  --accent:#ec6c9d; --accent-soft:#3a1f2b; --teal:#5cc7a8; --teal-soft:#17322b; --amber:#e0a94e; --amber-soft:#35291a; --miss:#ec8a74; --miss-soft:#3a221d;
+  --gene:#ec6c9d; --env:#5cc7a8; --luck:#a69da9; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.75;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:720px;margin:0 auto;display:grid;gap:20px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,7vw,44px);line-height:1.2;margin:0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--accent)}
+h2{font-family:var(--display);font-weight:600;font-size:20px;margin:0;text-wrap:balance}
+h3{font-size:14px;margin:0;color:var(--muted);font-weight:700;letter-spacing:.06em}
+p{margin:0}
+.sub{color:var(--muted);font-size:14px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:14px;min-width:0}
+.btn{font:inherit;font-weight:700;font-size:15px;border-radius:999px;padding:10px 22px;cursor:pointer;border:1.5px solid var(--fg);background:var(--fg);color:var(--bg)}
+.btn.ghost{background:transparent;color:var(--fg)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text]{font:inherit;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);width:100%;max-width:260px}
+button:focus-visible,input:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+/* age strip */
+.strip{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;display:flex;align-items:center;gap:0}
+.strip .node{display:grid;justify-items:center;gap:2px;flex:none;width:34px}
+.strip .dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface)}
+.strip .node.done .dot{background:var(--accent);border-color:var(--accent)}
+.strip .node.now .dot{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.strip .lbl{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.strip .seg{flex:1;height:2px;background:var(--line);margin-bottom:18px}
+.strip .seg.done{background:var(--accent)}
+/* setup */
+.ptable{display:grid;gap:8px}
+.prow{display:grid;grid-template-columns:5.5em 1fr 1fr;gap:8px;align-items:center}
+.prow.head{font-size:12px;color:var(--muted)}
+.seg3{display:flex;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--bg)}
+.seg3 button{flex:1;border:0;background:none;font:inherit;font-size:12px;color:var(--muted);padding:3px 0;border-radius:999px;cursor:pointer}
+.seg3 button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer}
+.check input{margin-top:5px;accent-color:var(--accent)}
+/* traits */
+.traits{display:grid;gap:10px}
+.trait{display:grid;grid-template-columns:5.5em minmax(0,1fr) 3.2em;gap:10px;align-items:center;font-size:14px}
+.track{position:relative;height:10px;background:var(--line);border-radius:999px}
+.track .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent)}
+.track .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted);opacity:.5}
+.track .ghost{position:absolute;top:-4px;width:3px;height:18px;border-radius:2px;background:var(--fg)}
+.pc{font-family:var(--mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meter{display:grid;gap:4px;font-size:13px}
+.meter .track .fill{background:var(--teal)}
+.notes{display:grid;gap:6px;list-style:none;margin:0;padding:0}
+.notes li{font-size:15px;padding-left:14px;position:relative}
+.notes li::before{content:"";position:absolute;left:0;top:.75em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.event{border-radius:10px;padding:12px 14px;display:grid;gap:2px;background:var(--amber-soft)}
+.event b{color:var(--amber);font-size:14px}
+.event span{font-size:14px}
+.tip{border-left:3px solid var(--teal);padding:4px 0 4px 12px;font-size:14px;color:var(--muted)}
+.tip b{color:var(--fg)}
+/* actions */
+.budget{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.coin{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--teal)}
+.coin.on{background:var(--teal)}
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.act{font:inherit;text-align:left;color:var(--fg);background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;display:grid;gap:4px;align-content:start}
+textarea{font:inherit;font-size:14px;line-height:1.7;width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);resize:vertical}
+a.btn{text-decoration:none;display:inline-block}
+.act:hover:not(:disabled){border-color:var(--accent)}
+.act[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.act:disabled{opacity:.4;cursor:default}
+.act .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.act b{font-size:15px}
+.act .cost{font-family:var(--mono);font-size:12px;color:var(--teal);white-space:nowrap}
+.act span.d{font-size:13px;color:var(--muted);line-height:1.6}
+.feedback{display:grid;gap:8px}
+/* ending */
+.big{font-family:var(--display);font-weight:800;font-size:clamp(22px,5vw,30px);line-height:1.4;text-wrap:balance}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{padding:8px 6px;border-top:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:500}
+td.n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.decomp{position:relative;height:14px;min-width:150px}
+.decomp .axis{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--muted)}
+.decomp i{position:absolute;top:2px;height:10px}
+.lessons{display:grid;gap:10px;list-style:none;margin:0;padding:0}
+.lessons li{display:grid;gap:2px;font-size:15px}
+.lessons .src{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.pos{color:var(--teal)} .neg{color:var(--miss)}
+footer{font-size:12px;color:var(--muted)}
+@media (max-width:480px){.prow{grid-template-columns:4.8em 1fr 1fr}.meters{grid-template-columns:1fr}.trait{grid-template-columns:5em minmax(0,1fr) 3em}}
+@media (prefers-reduced-motion:no-preference){.card{animation:in .25s ease}@keyframes in{from{transform:translateY(5px)}to{transform:none}}.track .fill{transition:width .5s ease}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:grid;gap:6px">
+    <div class="eyebrow">『こころは遺伝する』にもとづく子育てシミュレーション</div>
+    <h1>子育てを<em>間違えない</em>ために</h1>
+  </header>
+  <div class="strip" id="strip" aria-hidden="true"></div>
+  <main id="stage" style="display:grid;gap:20px"></main>
+  <footer>遺伝率などの数値は、ロバート・プロミン『こころは遺伝する』の知見をもとにしたゲーム用の簡略モデルです。実在の子どもの将来を予測するものではありません。</footer>
+</div>
+
+<script>
+// ---------- model ----------
+const AGES=[0,3,6,9,12,15,18,21,24];
+// h2 / c2 at observation ages 3,6,9,12,15,18,21,24 (index 0..7). e2 = rest.
+const TRAITS=[
+ {k:"study", n:"学力",     h:[.55,.6,.6,.6,.6,.6,.62,.62],  c:[.25,.2,.2,.2,.15,.08,.04,.02], hi:"本や図鑑を自分から開いている", lo:"机に向かうとすぐそわそわする"},
+ {k:"social",n:"社交性",   h:[.3,.35,.4,.4,.4,.45,.45,.45], c:[.1,.08,.05,.03,.02,0,0,0],  hi:"初対面の子ともすぐ遊びはじめる", lo:"知らない人の前では親の後ろに隠れる"},
+ {k:"calm",  n:"落ち着き", h:[.3,.35,.4,.4,.4,.45,.45,.45], c:[.05,.05,.03,.02,0,0,0,0],   hi:"失敗しても切り替えが早い", lo:"小さなことでも長く落ち込みやすい"},
+ {k:"sport", n:"運動",     h:[.4,.45,.5,.5,.55,.55,.55,.55],c:[.2,.15,.12,.1,.06,.03,.01,0], hi:"公園に行くとなかなか帰りたがらない", lo:"体を動かす遊びにはあまり乗ってこない"},
+ {k:"create",n:"創造性",   h:[.3,.35,.4,.45,.5,.5,.52,.52], c:[.15,.12,.1,.08,.05,.02,.01,0],hi:"空き箱で何かを作りはじめると止まらない", lo:"お絵かきや工作にはあまり興味を示さない"}
+];
+const ACTIONS=[
+ {id:"read",  n:"読み聞かせ・図鑑",    cost:1, ages:[0,3],        eff:{study:1},  d:"毎晩の読み聞かせと図鑑をそろえる"},
+ {id:"park",  n:"外遊び・公園",        cost:1, ages:[0,3,6],      eff:{sport:1,social:.3}, d:"週末は公園や自然の中で体を動かす"},
+ {id:"art",   n:"お絵かき・工作の道具", cost:1, ages:[0,3,6],      eff:{create:1}, d:"画材やブロックを手の届く所に置く"},
+ {id:"friends",n:"友だちと遊ぶ機会",   cost:1, ages:[3,6,9,12],   eff:{social:1}, d:"友だちを家に呼ぶ・キャンプに参加する"},
+ {id:"sportclub",n:"スポーツの習い事", cost:2, ages:[3,6,9,12,15],eff:{sport:1.6},d:"サッカーや水泳などのクラブに通わせる"},
+ {id:"music", n:"音楽・アートの習い事", cost:2, ages:[3,6,9,12,15],eff:{create:1.6},d:"ピアノや絵画教室に通わせる"},
+ {id:"juku",  n:"学習塾",              cost:2, ages:[6,9,12,15],  eff:{study:1.6},d:"週に数回、学習塾に通わせる"},
+ {id:"exam",  n:"中学受験に挑む",       cost:3, ages:[9],          eff:{study:2.4},d:"小4から本格的に受験塾へ。家庭の時間とお金を大きく使う", special:"exam"},
+ {id:"tuition",n:"学費と仕送りで支える", cost:2, ages:[18,21], eff:{study:.8}, d:"アルバイトに追われず、勉強に打ち込めるようにする（卒業まで）"},
+ {id:"abroad",n:"留学を後押しする",   cost:2, ages:[18], eff:{social:.6,create:.4}, d:"半年〜1年の海外留学の費用を出す"},
+ {id:"alone", n:"一人暮らしをさせる", cost:1, ages:[18],    eff:{calm:.5}, d:"家を出て、生活を自分で回させる"},
+ {id:"career",n:"進路の相談に乗る",   cost:1, ages:[21],    eff:{}, d:"求められたときだけ、就職や仕事の悩みの相談に乗る", rel:5},
+ {id:"push",  n:"親が進路を決める",   cost:1, ages:[18,21], eff:{study:.4}, d:"安定した就職先や資格を、親の考えで強く勧める", rel:-10},
+ {id:"strict",n:"厳しくしつける",       cost:1, ages:[3,6,9,12,15],eff:{calm:.6},  d:"ルールを決めて守らせ、叱ることも増やす", rel:-8},
+ {id:"talk",  n:"毎日いっしょに過ごす", cost:1, ages:[0,3,6,9,12,15,18,21],eff:{calm:.4},d:"食事やおしゃべりの時間を大切にする", rel:7},
+ {id:"fav",   n:"本人の「好き」を応援",  cost:1, ages:[3,6,9,12,15,18,21],eff:{},       d:"子どもが夢中になっていることを見つけて後押しする", special:"fav"}
+];
+// age-specific notes: [when the trait is a strength, when it is a weakness]
+const NOTES={
+ study:{3:["絵本を何度も読んでとせがみ、文字に興味津々","絵本を読んでいても途中でどこかへ行ってしまう"],6:["ひらがなを覚えるのが早く、看板の字を読みたがる","ひらがなの練習になると、すぐに飽きてしまう"],9:["宿題を言われる前に終わらせ、図鑑を読みふけっている","宿題を始めるまでに時間がかかり、毎晩一苦労"],12:["定期テストの前でも、要領よく勉強を進めている","授業についていくのが大変そうで、テストの点に波がある"],15:["模試の結果がよく、先生から難関校をすすめられた","勉強の話になると口数が減り、成績表を見せたがらない"],18:["講義やゼミの内容を、楽しそうに話してくれる","レポートの締め切りに追われ、単位を気にしている"],21:["卒業論文のテーマに、自分から深く打ち込んでいる","資格試験や卒論の勉強より、ほかのことに気持ちが向いている"]},
+ social:{3:["初対面の子ともすぐ遊びはじめる","知らない人の前では親の後ろに隠れる"],6:["入学早々、クラスの子の名前をたくさん覚えてきた","新しいクラスになじむまでに、しばらく時間がかかった"],9:["放課後はいつも友だちと遊ぶ約束でいっぱい","休み時間は一人で過ごすことが多いようだ"],12:["クラスの中心にいて、学級委員にも選ばれた","大勢の集まりは苦手で、仲のいい数人とだけ過ごしている"],15:["部活や文化祭で、自然とまとめ役になっている","人付き合いに疲れて、家では一人の時間を大事にしている"],18:["サークルやアルバイトで、どんどん友だちを増やしている","新しい人間関係に気後れして、少し孤立気味のようだ"],21:["OB訪問やインターンで、社会人とも物おじせずに話している","面接やグループディスカッションに、強い苦手意識がある"]},
+ calm:{3:["転んでもすぐに泣きやんで、また走り出す","思いどおりにならないと、長いあいだ泣き続ける"],6:["初めての場所でも落ち着いていて、先生からほめられた","新しい環境に不安が強く、朝の登校をしぶる日がある"],9:["失敗しても切り替えが早く、次に向かっていける","小さな失敗でも長く引きずって、元気がなくなる"],12:["思春期の割には落ち着いていて、気分の波が少ない","イライラすることが増え、気分の浮き沈みが激しい"],15:["受験のプレッシャーにも動じず、淡々と準備している","試験や人間関係のことで、眠れない夜があるようだ"],18:["一人暮らしや新生活にも、すんなり慣れたようだ","新生活の変化にとまどい、ときどき弱音の電話がくる"],21:["就職活動の不採用にも、気持ちを切り替えて臨んでいる","将来への不安が大きく、考えこむ時間が増えている"]},
+ sport:{3:["公園に行くとなかなか帰りたがらない","体を動かす遊びにはあまり乗ってこない"],6:["かけっこが速く、運動会のリレーの選手に選ばれた","鉄棒や縄跳びが苦手で、体育の日は少し憂うつそう"],9:["休み時間はいつもドッジボールやサッカーをしている","外遊びより、室内で過ごすほうを好むようだ"],12:["運動部でレギュラーに選ばれ、毎日練習に打ち込んでいる","運動部には入らず、体育の授業も最低限で済ませている"],15:["部活で県大会に出場し、推薦の話も出ている","体育の授業や体力テストを、できれば避けたがっている"],18:["体育会やサークルで、毎日のように体を動かしている","運動とはすっかり縁がなくなり、階段で息が切れるらしい"],21:["忙しい中でもジム通いやランニングを欠かさない","運動不足を自覚しつつも、なかなか体を動かせていない"]},
+ create:{3:["空き箱で何かを作りはじめると止まらない","お絵かきや工作にはあまり興味を示さない"],6:["自由帳いっぱいに、自分で考えた物語や絵を描いている","図工の時間は、何を作ればいいか迷ってしまうようだ"],9:["夏休みの自由研究に、誰も思いつかないテーマを選んだ","自由研究や作文のテーマ決めに、毎回とても苦労する"],12:["イラストや動画づくりに夢中で、作品を見せてくれる","決まった答えのある課題のほうが得意だと言っている"],15:["文化祭の企画やデザインを、自分から引き受けている","自由な発想を求められる課題は、少し苦手なようだ"],18:["自主制作の作品づくりに、多くの時間を注いでいる","ものづくりや表現の活動には、あまり関心がないようだ"],21:["卒業制作や趣味の創作に、驚くほどの熱量を注いでいる","創作より、決まった手順をこなす仕事に向いていると話す"]}
+};
+const EVENTS=[
+ {a:[0,3],   t:"保育園で大の仲良しができた", e:{social:.7}},
+ {a:[0,3],   t:"お絵かきを先生にとてもほめられた", e:{create:.7}},
+ {a:[0,3],   t:"熱を出しやすい時期がしばらく続いた", e:{sport:-.6}},
+ {a:[3,6],   t:"担任の先生と相性がとてもよかった", e:{study:.8}},
+ {a:[3,6,9], t:"骨折してしばらく運動ができなかった", e:{sport:-.8}},
+ {a:[6,9],   t:"クラス替えで仲良しと離ればなれになった", e:{social:-.7}},
+ {a:[6,9],   t:"発表会で大失敗して、しばらく落ち込んだ", e:{calm:-.7}},
+ {a:[6,9,12],t:"地域の大会で入賞した", e:{sport:.7}},
+ {a:[9,12],  t:"一生ものの親友ができた", e:{social:.8,calm:.3}},
+ {a:[9,12,15],t:"作品がコンクールで賞をとった", e:{create:.8}},
+ {a:[12,15], t:"試験の直前に体調を崩した", e:{study:-.7}},
+ {a:[12,15], t:"失恋して、しばらく元気がなかった", e:{calm:-.8}},
+ {a:[12,15], t:"尊敬できる先輩・先生に出会った", e:{study:.5,calm:.4}},
+ {a:[3,6,9,12],t:"引っ越しで友だちと別れることになった", e:{social:-.6,calm:-.3}},
+ {a:[18],    t:"サークルで生涯の仲間ができた", e:{social:.8}},
+ {a:[18],    t:"必修の単位を落として留年しかけた", e:{study:-.7,calm:-.3}},
+ {a:[18,21], t:"アルバイト先で責任ある仕事を任された", e:{calm:.6,social:.3}},
+ {a:[18,21], t:"ゼミの先生に研究の面白さを教わった", e:{study:.8}},
+ {a:[18,21], t:"自主制作の作品がSNSで話題になった", e:{create:.8}},
+ {a:[21],    t:"就職活動で不採用が続き、自信をなくした", e:{calm:-.8}},
+ {a:[21],    t:"第一志望から内定をもらった", e:{calm:.6,study:.3}},
+ {a:[21],    t:"大会の直前に大けがをした", e:{sport:-.8}},
+ {a:[21],    t:"配属先で面倒見のいい上司に恵まれた", e:{calm:.6,social:.3}},
+ {a:[21],    t:"仕事で大きなミスをして、しばらく落ち込んだ", e:{calm:-.7}}
+];
+const TIPS={
+ 0:["<b>DNAはその子の青写真</b>　心の個人差の約半分は、生まれたときに受け継いだDNAの違いで説明されます。"],
+ 3:["<b>親は重要だが、違いは生まない</b>　子育ての違いが、子どもの個性の違いを生む力は思ったより小さいことがわかっています。"],
+ 6:["<b>学校は重要だが、違いは生まない</b>　小学校の成績を補正すると、学校評価で説明できる成績の差は2%未満でした。"],
+ 9:["<b>選抜校の効果は「選んだ生徒」の効果</b>　選抜に使われた要因を統制すると、学校のタイプの差は1%未満になります。"],
+ 12:["<b>年齢とともに遺伝率は高まる</b>　人は歳を重ねるほど、遺伝的な本来の自分に近づいていきます。"],
+ 15:["<b>木目に沿って</b>　遺伝の流れに逆らって泳ぐより、身を任せたほうが賢明だと著者は勧めます。"],
+ 18:["<b>人生経験は重要だが、違いは生まない</b>　大人になってからの経験も、心理的な「自分らしさ」を大きく変えることはありません。"],
+ 21:["<b>職業と収入にも遺伝の影響</b>　職業的地位と収入の遺伝率は約40%で、家庭の共有環境の影響はほぼゼロです。"]
+};
+// ---------- utils ----------
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function Phi(z){const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2);let p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p}
+const pct=z=>Math.max(1,Math.min(99,Math.round(Phi(z)*100)));
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const stage=document.getElementById("stage");
+function sayLevel(p){return p>=85?"とても高い":p>=65?"高め":p>=36?"ふつう":p>=16?"低め":"とても低い"}
+
+// ---------- state ----------
+let setup={name:"",p1:{},p2:{},dna:true};
+TRAITS.forEach(t=>{setup.p1[t.k]=0;setup.p2[t.k]=0});
+let G=null, S=null, history=[]; // history: finished runs for comparison
+
+function makeChildGenes(){
+  // parent genetic value ≈ chosen level × sqrt(h2) + noise; child = midparent + segregation (var .5)
+  const g={};
+  TRAITS.forEach(t=>{const h=Math.sqrt(t.h[5]);
+    const a=setup.p1[t.k]*h+randn()*Math.sqrt(1-h*h)*.8, b=setup.p2[t.k]*h+randn()*Math.sqrt(1-h*h)*.8;
+    g[t.k]=clamp(.5*a+.5*b+randn()*Math.sqrt(.5),-2.6,2.6)});
+  return g;
+}
+function newRun(genes){
+  const pgs={};TRAITS.forEach(t=>pgs[t.k]=.45*genes[t.k]+Math.sqrt(1-.2025)*randn());
+  S={turn:0,C:{},E:{},rel:60,joy:60,z:null,parts:null,events:[],log:[],chosen:[],favHits:0,favTotal:0,examDone:false,pgs,decisions:[]};
+  TRAITS.forEach(t=>{S.C[t.k]=0;S.E[t.k]=0});
+  G=genes;
+}
+function observe(i){ // i: 0..5 => ages 3..18
+  const z={},parts={};
+  TRAITS.forEach(t=>{const h=t.h[i],c=t.c[i],e=Math.max(0,1-h-c);
+    const g=Math.sqrt(h)*G[t.k], en=Math.sqrt(c)*S.C[t.k], lk=Math.sqrt(e)*S.E[t.k];
+    z[t.k]=g+en+lk; parts[t.k]={g,en,lk,h,c,e}});
+  S.z=z;S.parts=parts;
+}
+function interests(){ // noisy reading of genes
+  const r=TRAITS.map(t=>({t,v:G[t.k]+randn()*.55})).sort((a,b)=>b.v-a.v);
+  return {top:r.slice(0,2),bottom:r[r.length-1]};
+}
+
+// ---------- render: strip ----------
+function strip(ageIdx){
+  document.getElementById("strip").innerHTML=AGES.map((a,i)=>`${i?`<div class="seg ${i<=ageIdx?"done":""}"></div>`:""}<div class="node ${i<ageIdx?"done":i===ageIdx?"now":""}"><div class="dot"></div><div class="lbl">${a}歳</div></div>`).join("");
+}
+// ---------- setup screen ----------
+function renderSetup(){
+  strip(-1);
+  const seg=(who,k)=>`<div class="seg3" role="group">${[[-1,"苦手"],[0,"ふつう"],[1,"得意"]].map(([v,l])=>`<button data-who="${who}" data-k="${k}" data-v="${v}" aria-pressed="${setup[who][k]===v}">${l}</button>`).join("")}</div>`;
+  stage.innerHTML=`<section class="card">
+    <h2>はじめに</h2>
+    <p>あなたの子どもが生まれてから、大学を卒業して社会人2年目を迎える24歳までを、3年ごとに育てていきます。子どもの個性は、<b>受け継いだ遺伝子</b>、<b>あなたの子育て</b>、<b>偶然の出来事</b>の3つから決まります。どれがどれだけ効くのかは、育て終えたときにわかります。</p>
+    <div style="display:grid;gap:6px"><h3>子どもの名前</h3><input type="text" id="name" maxlength="12" placeholder="例：はると" value="${esc(setup.name)}"></div>
+  </section>
+  <section class="card">
+    <h2>両親の個性</h2>
+    <p class="sub">あなたとパートナーの傾向を選んでください。子どもは、ここから遺伝子の半分ずつを受け継ぎます。</p>
+    <div class="ptable">
+      <div class="prow head"><span></span><span>あなた</span><span>パートナー</span></div>
+      ${TRAITS.map(t=>`<div class="prow"><span style="font-size:14px">${t.n}</span>${seg("p1",t.k)}${seg("p2",t.k)}</div>`).join("")}
+    </div>
+    <div class="row"><button class="btn ghost" id="rnd">おまかせで決める</button></div>
+  </section>
+  <section class="card">
+    <label class="check"><input type="checkbox" id="dna" ${setup.dna?"checked":""}><span><b>生まれたときにDNA検査を受ける</b><br><span class="sub">ポリジェニックスコア（遺伝的な傾向の予測）を見られます。ただし予測は確率的で、外れることもよくあります。</span></span></label>
+    <div class="row"><button class="btn" id="go">赤ちゃんを迎える</button></div>
+  </section>`;
+  stage.querySelectorAll(".seg3 button").forEach(b=>b.onclick=()=>{setup[b.dataset.who][b.dataset.k]=+b.dataset.v;setup.name=document.getElementById("name").value;renderSetup()});
+  document.getElementById("rnd").onclick=()=>{TRAITS.forEach(t=>{setup.p1[t.k]=pick([-1,0,0,1]);setup.p2[t.k]=pick([-1,0,0,1])});setup.name=document.getElementById("name").value;renderSetup()};
+  document.getElementById("go").onclick=()=>{
+    setup.name=(document.getElementById("name").value||"").trim()||"はると";
+    setup.dna=document.getElementById("dna").checked;
+    history=[];newRun(makeChildGenes());renderTurn();window.scrollTo({top:0})};
+}
+// ---------- turn ----------
+let selected=new Set();
+function traitBars(z,ghost){
+  return `<div class="traits">${TRAITS.map(t=>{const p=pct(z[t.k]);return `<div class="trait"><span>${t.n}</span><div class="track"><div class="mid"></div><div class="fill" style="width:${p}%"></div>${ghost?`<div class="ghost" style="left:calc(${ghost[t.k]}% - 1px)" title="前回"></div>`:""}</div><span class="pc">${p}</span></div>`}).join("")}</div>`;
+}
+function meters(){
+  return `<div class="meters">
+    <div class="meter"><div class="row" style="justify-content:space-between"><span>親子のきずな</span><span class="pc">${Math.round(S.rel)}</span></div><div class="track"><div class="fill" style="width:${S.rel}%"></div></div></div>
+    <div class="meter"><div class="row" style="justify-content:space-between"><span>毎日の楽しさ</span><span class="pc">${Math.round(S.joy)}</span></div><div class="track"><div class="fill" style="width:${S.joy}%"></div></div></div>
+  </div>`;
+}
+function renderTurn(){
+  const age=AGES[S.turn], nm=esc(setup.name); strip(S.turn); selected=new Set();
+  let html="";
+  if(S.turn===0){
+    html+=`<section class="card"><div class="eyebrow">0歳</div><h2>${nm}が生まれました</h2>
+      <p>まだ何も話せませんが、${nm}は生まれた瞬間に、両親から受け継いだDNAという青写真をもっています。</p>
+      ${setup.dna?`<h3>DNA検査の結果（ポリジェニックスコア）</h3>${traitBars(S.pgs)}<p class="sub">数字は同年代100人の中での位置（50が平均）。このスコアと実際の育ち方の相関は0.4程度で、外れることもよくあります。</p>`:`<p class="sub">DNA検査は受けませんでした。どんな子かは、育てながら少しずつわかっていきます。</p>`}
+    </section>`;
+  }else{
+    const it=interests(), last=S.log[S.log.length-1];
+    html+=`<section class="card"><div class="eyebrow">${age}歳になりました</div><h2>${nm}のいまの様子</h2>
+      ${traitBars(S.z)}<p class="sub">同年代100人の中での位置（50が平均）</p>${meters()}
+      <h3>最近の${nm}</h3><ul class="notes"><li>${esc(NOTES[it.top[0].t.k][age][0])}</li><li>${esc(NOTES[it.top[1].t.k][age][0])}</li><li>${esc(NOTES[it.bottom.t.k][age][1])}</li></ul>
+    </section>`;
+    if(last){html+=`<section class="card"><h3>この間の出来事</h3>${last.events.map(e=>`<div class="event"><b>${esc(e.t)}</b><span>${e.note}</span></div>`).join("")}${last.fb.map(f=>`<p class="tip">${f}</p>`).join("")}</section>`}
+  }
+  const acts=ACTIONS.filter(a=>a.ages.includes(age)), span=AGES[S.turn+1]-age;
+  if(age===12&&S.exam){html+=`<section class="card"><div class="event" style="background:${S.exam.ok?"var(--teal-soft)":"var(--miss-soft)"}"><b style="color:${S.exam.ok?"var(--teal)":"var(--miss)"}">中学受験の結果：${S.exam.title}</b><span>${S.exam.msg}どの中学に進んだかよりも、${nm}自身の傾向のほうが、これからの成績に大きく影響します。</span></div></section>`}
+  if(age===18){const p=pct(S.z.study);S.route=p<25?"senmon":"univ";html+=`<section class="card"><div class="event"><b>${nm}が${S.route==="senmon"?"専門学校":"大学"}に進学しました</b><span>${p>=70?"第一志望の難関大学に合格しました。":p>=40?"希望していた大学に合格しました。":p>=25?"浪人も考えましたが、合格した大学に進むことにしました。":"大学ではなく、手に職をつけられる専門学校を選びました。"}ここからは、親が関われることがぐっと減っていきます。</span></div></section>`}
+  html+=`<section class="card" id="choose"><h2>${age}歳から${age+span}歳までの${span}年間、何をしますか？</h2>
+    <div class="row" style="justify-content:space-between"><span class="sub">時間とお金は3つまで使えます。</span><span class="budget" id="budget"></span></div>
+    <div class="acts">${acts.map(a=>`<button class="act" data-id="${a.id}" aria-pressed="false"><div class="top"><b>${esc(a.n)}</b><span class="cost">●×${a.cost}</span></div><span class="d">${esc(a.d)}</span></button>`).join("")}</div>
+    <p class="tip">${TIPS[age][0]}</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn" id="next">${span}年すすめる</button></div>
+  </section>`;
+  stage.innerHTML=html;
+  const upd=()=>{const used=[...selected].reduce((s,id)=>s+ACTIONS.find(a=>a.id===id).cost,0);
+    document.getElementById("budget").innerHTML=[0,1,2].map(i=>`<span class="coin ${i<3-used?"on":""}"></span>`).join("")+`<span>残り${3-used}</span>`;
+    stage.querySelectorAll(".act").forEach(b=>{const a=ACTIONS.find(x=>x.id===b.dataset.id);const on=selected.has(a.id);b.setAttribute("aria-pressed",on);b.disabled=!on&&a.cost>3-used})};
+  stage.querySelectorAll(".act").forEach(b=>b.onclick=()=>{const id=b.dataset.id;selected.has(id)?selected.delete(id):selected.add(id);upd()});
+  upd();
+  document.getElementById("next").onclick=advance;
+}
+function topGene(){return TRAITS.slice().sort((a,b)=>G[b.k]-G[a.k])[0]}
+function advance(){
+  const age=AGES[S.turn], chosen=[...selected].map(id=>ACTIONS.find(a=>a.id===id)), fb=[];
+  // shared environment: decays, then actions push it
+  TRAITS.forEach(t=>S.C[t.k]*=.55);
+  let dRel=0,dJoy=0;
+  chosen.forEach(a=>{
+    if(a.special==="fav"){const t=topGene();S.C[t.k]+=1.2;dRel+=8;dJoy+=8;S.favHits++;
+      fb.push(`「好き」を応援したことで、${esc(setup.name)}は<b>${t.n}</b>に関わることにますます打ち込みました。子どもが自分の傾向に合う環境を選ぶ「環境のなかの遺伝」そのものです。`)}
+    Object.entries(a.eff).forEach(([k,v])=>{S.C[k]+=v;
+      const g=G[k]; dRel+=1+4*g; dJoy+=1+5*g;});
+    if(a.rel){dRel+=a.rel;dJoy+=a.rel<0?-4:4}
+    if(a.special==="exam"){S.examDone=true;dRel+=8*G.study-4;dJoy+=8*G.study-6;
+      fb.push(G.study>0.3?`中学受験の勉強に、${esc(setup.name)}は意外なほど乗り気でした。もともと勉強に向いた傾向があったようです。`:`中学受験の勉強は${esc(setup.name)}にとって負担が大きく、家の空気がぴりぴりする日が増えました。`)}
+    const pushAgainst=Object.keys(a.eff).filter(k=>a.eff[k]>=1&&G[k]<-.5);
+    if(pushAgainst.length)fb.push(`${a.n}は、${esc(setup.name)}の苦手な方向でした。続けてはいますが、楽しそうではありません。木目に逆らうと、親子関係に代償が出ることがあります。`);
+  });
+  if(!chosen.length){dRel+=1;fb.push("この間は、特に何もせず見守りました。それでも子どもは、自分のペースで育っていきます。")}
+  TRAITS.forEach(t=>S.C[t.k]=clamp(S.C[t.k],-2.5,2.5));
+  // rebellious years: gains are halved and the relationship drifts down
+  const teen=age===12||age===15;
+  if(teen){dRel-=6;dJoy-=3;if(age===12)fb.push(`${esc(setup.name)}が反抗期に入りました。話しかけても返事が短く、親子の会話が減っていきます。どの家庭にもある時期です。`)}
+  // relationships need tending: both drift 15% back toward 55 every turn
+  S.rel+=(55-S.rel)*.15; S.joy+=(55-S.joy)*.15;
+  // diminishing returns near the top: gains shrink as the value approaches 100
+  const grow=(cur,d)=>d>0?d*(teen?.5:1)*Math.max(0,(100-cur)/45):d;
+  S.rel=clamp(S.rel+grow(S.rel,dRel)+randn()*2,5,100);S.joy=clamp(S.joy+grow(S.joy,dJoy)+randn()*4,5,100);
+  // non-shared env: random, weakly persistent; 1–2 events
+  const evs=[],pool=EVENTS.filter(e=>e.a.includes(age));
+  const n=Math.random()<.55?1:2;
+  for(let i=0;i<n&&pool.length;i++){const e=pool.splice(Math.floor(Math.random()*pool.length),1)[0];evs.push(e)}
+  TRAITS.forEach(t=>{S.E[t.k]=.3*S.E[t.k]+Math.sqrt(.91)*randn()});
+  evs.forEach(e=>{Object.entries(e.e).forEach(([k,v])=>S.E[k]+=v*1.4);
+    e.note=Object.values(e.e)[0]>0?"うれしい出来事でした。ただ、こうした偶然の影響は長くは続かないことがわかっています。":"つらい時期でした。それでも子どもは、時間とともに自分の軌道に戻っていきます。"});
+  S.decisions.push({age,ids:chosen.map(a=>a.id)});
+  S.log.push({events:evs,fb});
+  S.turn++;
+  observe(S.turn-1);
+  if(chosen.some(a=>a.special==="exam")){const sc=pct(S.z.study+randn()*.45);
+    S.exam=sc>=62?{ok:true,title:"第一志望校に合格しました",msg:"努力が実り、第一志望の中高一貫校に進学します。"}:sc>=45?{ok:true,title:"第二志望校に合格しました",msg:"第一志望には届きませんでしたが、第二志望の中高一貫校に進学します。"}:{ok:false,title:"中学受験は不合格でした",msg:"残念ながら合格は届かず、地元の公立中学校に進学します。"};}
+  if(S.turn>=AGES.length-1)renderEnd();else renderTurn();
+  window.scrollTo({top:0});
+}
+// ---------- ending ----------
+function counterfactualNoParent(){ // same genes & luck, parenting effects removed
+  const z={};TRAITS.forEach(t=>{const p=S.parts[t.k];z[t.k]=p.g+p.lk});return z;
+}
+function path(z){
+  const P={};TRAITS.forEach(t=>P[t.k]=pct(z[t.k]));
+  const top=TRAITS.slice().sort((a,b)=>P[b.k]-P[a.k])[0];
+  const abroad=S.decisions.some(d=>d.ids.includes("abroad")), univ=S.route!=="senmon";
+  let r;
+  if(P.sport>=88) r={text:"実業団でスポーツを続けながら働き、日本代表をめざしています。",short:"実業団で日本代表をめざす"};
+  else if(univ&&P.study>=75&&["study","create"].includes(top.k)) r={text:"大学院で研究を深めたあと、専門職として社会に出ました。",short:"大学院を出て専門職へ"};
+  else if(P.social>=72&&P.calm>=55) r={text:"学生時代の仲間と会社を立ち上げ、起業家として走りはじめました。",short:"起業家として独立"};
+  else if(P.create>=75&&P.social<55) r={text:"会社には入らず、フリーランスのクリエイターとして仕事を受けています。",short:"フリーランスのクリエイターに"};
+  else if(abroad&&P.social>=55) r={text:"留学先で生まれた縁から、海外の企業で働いています。",short:"海外で就職"};
+  else if(!univ) r={text:"専門学校で手に職をつけて就職し、社会人4年目の頼れる中堅になっています。",short:"手に職をつけて活躍中"};
+  else{
+    const base=P.study>=40?"大学を卒業して就職し、社会人2年目を迎え、":"大学をなんとか卒業して就職し、社会人2年目を迎え、";
+    const flav={study:"仕事でも専門性を深めています。",social:"人と関わる仕事で頼られる存在になりつつあります。",calm:"新しい職場でも落ち着いて周りを支えています。",sport:"仕事のかたわら、スポーツを本気で続けています。",create:"ものづくりや表現の仕事に就きました。"}[top.k];
+    const sh={study:"専門性を武器に就職",social:"人と関わる仕事で活躍中",calm:"職場の頼れる存在に",sport:"仕事とスポーツを両立",create:"ものづくりの仕事に就職"}[top.k];
+    r={text:base+flav,short:sh};
+  }
+  S.pathShort=r.short; return r;
+}
+function parentType(){
+  const c={};S.decisions.forEach(d=>d.ids.forEach(id=>c[id]=(c[id]||0)+1));
+  const n=k=>k.reduce((t,id)=>t+(c[id]||0),0), total=Object.values(c).reduce((a,b)=>a+b,0);
+  if(n(["fav"])>=4)return "「好き」全力応援型";
+  if(n(["juku","exam","tuition","push"])>=4)return "教育熱心型";
+  if(n(["strict","push"])>=3)return "鬼コーチ型";
+  if(n(["sportclub","park"])>=3)return "体育会型";
+  if(n(["music","art"])>=3)return "アート支援型";
+  if(n(["talk"])>=4)return "いつもそばにいる型";
+  if(total<=8)return "どっしり見守り型";
+  return "バランス型";
+}
+function shareText(P,sh){
+  const top=TRAITS.slice().sort((a,b)=>P[b.k]-P[a.k])[0];
+  const job=S.pathShort||"社会人として活躍中";
+  return `${setup.name}を24歳まで育ててみた結果、${job}！
+私は「${parentType()}」の親でした。
+学力${P.study} 社交${P.social} 落着${P.calm} 運動${P.sport} 創造${P.create}
+個性を決めたのは
+遺伝${sh("g")}% 偶然${sh("lk")}% 子育て${sh("en")}%
+#子育てを間違えないために #こころは遺伝する
+https://bit.ly/4jnScrc`;
+}
+function renderEnd(){
+  strip(AGES.length-1);
+  const nm=esc(setup.name), z=S.z, cf=counterfactualNoParent(), prev=history[history.length-1];
+  const rows=TRAITS.map(t=>{const p=S.parts[t.k], tot=pct(z[t.k]), cfp=pct(cf[t.k]);
+    const sc=40; const seg=(v,col,off)=>{const w=Math.min(48,Math.abs(v)*sc);return {w,html:""}};
+    // stacked diverging bar: gene, parenting, luck
+    let posX=50,negX=50,bars="";
+    [["g","var(--gene)"],["en","var(--env)"],["lk","var(--luck)"]].forEach(([k,col])=>{const v=p[k],w=Math.min(46,Math.abs(v)*sc*0.5);
+      if(v>=0){bars+=`<i style="left:${posX}%;width:${w}%;background:${col}"></i>`;posX+=w}else{negX-=w;bars+=`<i style="left:${negX}%;width:${w}%;background:${col}"></i>`}});
+    const diff=tot-cfp;
+    return `<tr><td>${t.n}</td><td class="n">${tot}</td><td><div class="decomp"><div class="axis"></div>${bars}</div></td><td class="n">${cfp}</td><td class="n ${diff>0?"pos":diff<0?"neg":""}">${diff>0?"+":""}${diff}</td>${prev?`<td class="n">${prev.P[t.k]}</td>`:""}</tr>`}).join("");
+  // share of variance-ish summary
+  const sum={g:0,en:0,lk:0};TRAITS.forEach(t=>{const p=S.parts[t.k];sum.g+=Math.abs(p.g);sum.en+=Math.abs(p.en);sum.lk+=Math.abs(p.lk)});
+  const tot=sum.g+sum.en+sum.lk, sh=k=>Math.round(sum[k]/tot*100);
+  const favT=topGene();
+  const fit=S.decisions.some(d=>d.ids.includes("fav"));
+  const P={};TRAITS.forEach(t=>P[t.k]=pct(z[t.k]));
+  const relMsg=S.rel>=75?"親子のきずなはとても強く、いまでも何でも話せる関係です。":S.rel>=45?"ぶつかる時期もありましたが、親子の関係はおおむね良好です。":"気持ちがすれ違う時期が長く、親子の会話は少なくなってしまいました。";
+  stage.innerHTML=`<section class="card"><div class="eyebrow">24歳、社会人2年目になりました</div>
+    <p class="big">${nm}は、${path(z).text}</p>
+    ${traitBars(z,prev?prev.P:null)}<p class="sub">同年代100人の中での位置（50が平均）。${prev?"黒い線は、前回同じ遺伝子で育てたときの結果です。":""}</p>
+    ${meters()}<p>${relMsg}</p>
+  </section>
+  <section class="card"><h2>${nm}の個性は、何で決まったのか</h2>
+    <p>24歳時点の個性を、<b>遺伝</b>・<b>あなたの子育て</b>・<b>偶然の出来事</b>に分けました。右の2列は、同じ遺伝子と同じ偶然のまま、子育ての効果だけをなくした場合です。</p>
+    <div class="legend"><span><i style="background:var(--gene)"></i>遺伝</span><span><i style="background:var(--env)"></i>子育て（共有環境）</span><span><i style="background:var(--luck)"></i>偶然（非共有環境）</span><span>中心線より右は平均を押し上げ、左は押し下げた分</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>個性</th><th>結果</th><th>何が効いたか</th><th>子育てなし</th><th>差</th>${prev?"<th>前回</th>":""}</tr></thead><tbody>${rows}</tbody></table></div>
+    <p>今回の育ちでは、個性を平均から動かした力のおよそ<b>${sh("g")}%が遺伝</b>、<b>${sh("lk")}%が偶然</b>、<b>${sh("en")}%が子育て</b>でした。大人になるころには、子育ての影響はほとんど消えていきます。</p>
+  </section>
+  <section class="card"><h2>この24年から言えること</h2>
+    <ul class="lessons">
+      <li>${nm}が生まれつきいちばん強く持っていた傾向は<b>${favT.n}</b>でした。${fit?"「好き」を応援したことで、その傾向に合った環境を選びやすくなりました。":"「好き」を応援する選択をすると、親子のきずなと毎日の楽しさが大きく伸びます。"}<span class="src">環境のなかの遺伝・遺伝的増幅</span></li>
+      <li>塾や習い事の効果は、子どもが小さいうちは見えますが、大学を出るころにはほとんど残りません。家族が共有する環境の影響は、青年期に消えていきます。<span class="src">共有環境の影響の消失</span></li>
+      ${S.examDone?`<li>中学受験の結果は「${S.exam?S.exam.title.replace(/しました|でした/,""):""}」でした。中学受験は、${G.study>0.3?"勉強に向いた傾向をもつ"+nm+"には合っていました":"勉強がそれほど向いていなかった"+nm+"にとって負担が大きかった"}ようです。選抜校の成績が高いのは、主に入学前の生徒の違いによるものです。<span class="src">選抜校と非選抜校</span></li>`:""}
+      <li>就職や進学の行き先にも遺伝が関わります。職業的地位と収入の遺伝率は約40%で、親が進路を決めても、その子らしさに沿わない道は長続きしにくいものです。<span class="src">職業的地位と収入</span></li>
+      <li>出来事の影響はその時々で大きく見えても、長続きしません。人は環境の凹凸にぶつかったあと、自分の遺伝的な軌道に戻っていきます。<span class="src">非共有環境</span></li>
+      <li>それでも、子育ては無意味ではありません。子どもが「今日」を楽しく過ごせるか、親子がどんな関係を結ぶかは、親しだいです。<span class="src">あとがき</span></li>
+    </ul>
+  </section>
+  <section class="card" id="sharecard"><h2>結果をシェアする</h2>
+    <p class="sub">育てた結果を、XなどのSNSに投稿できる形にまとめました。</p>
+    <textarea id="sharetext" readonly rows="8">${esc(shareText(P,sh))}</textarea>
+    <div class="row"><button class="btn" id="copy">テキストをコピー</button><a class="btn ghost" id="xpost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(shareText(P,sh))}">Xで投稿する</a><span class="sub" id="copied" aria-live="polite"></span></div>
+  </section>
+  <section class="card"><h2>もう一度育てる</h2>
+    <p class="sub">同じ遺伝子でやり直すと、子育ての選択を変えても24歳の姿があまり変わらないことを確かめられます。きょうだいを育てると、同じ両親からでも違う子が生まれることがわかります。</p>
+    <div class="row"><button class="btn" id="same">同じ子をもう一度育てる</button><button class="btn ghost" id="sib">きょうだいを育てる</button><button class="btn ghost" id="reset">両親の設定からやり直す</button></div>
+  </section>`;
+  const finished={P};
+  document.getElementById("copy").onclick=()=>{const ta=document.getElementById("sharetext"),msg=document.getElementById("copied");
+    const fallback=()=>{ta.focus();ta.select();msg.textContent="選択しました。コピーしてください。"};
+    try{navigator.clipboard.writeText(ta.value).then(()=>msg.textContent="コピーしました",fallback)}catch(e){fallback()}};
+  document.getElementById("same").onclick=()=>{history.push(finished);newRun(G);renderTurn();window.scrollTo({top:0})};
+  document.getElementById("sib").onclick=()=>{history=[];newRun(makeChildGenes());renderTurn();window.scrollTo({top:0})};
+  document.getElementById("reset").onclick=()=>{history=[];renderSetup();window.scrollTo({top:0})};
+}
+renderSetup();
+</script>
+</body>
+</html>
